@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Extend form view: add production_id after picking_id -->
+    <record id="odooer_valuation_report_form_mrp" model="ir.ui.view">
+        <field name="name">odooer.valuation.report.form.mrp</field>
+        <field name="model">odooer.valuation.report</field>
+        <field name="inherit_id" ref="odooer_stock.odooer_valuation_report_form"/>
+        <field name="arch" type="xml">
+            <field name="picking_id" position="after">
+                <field name="production_id" invisible="not production_id"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Extend list view: add production_id column (hidden by default) -->
+    <record id="odooer_valuation_report_list_mrp" model="ir.ui.view">
+        <field name="name">odooer.valuation.report.list.mrp</field>
+        <field name="model">odooer.valuation.report</field>
+        <field name="inherit_id" ref="odooer_stock.odooer_valuation_report_list"/>
+        <field name="arch" type="xml">
+            <field name="picking_id" position="after">
+                <field name="production_id" optional="hide" column_invisible="1"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Extend search view: add Manufacturing filter and reference domain -->
+    <record id="odooer_valuation_report_search_mrp" model="ir.ui.view">
+        <field name="name">odooer.valuation.report.search.mrp</field>
+        <field name="model">odooer.valuation.report</field>
+        <field name="inherit_id" ref="odooer_stock.odooer_valuation_report_search"/>
+        <field name="arch" type="xml">
+            <!-- Extend reference search to also match MO names -->
+            <field name="reference" position="replace">
+                <field name="reference" string="Reference"
+                       filter_domain="['|', '|', ('picking_id.name', 'ilike', self), ('production_id.name', 'ilike', self), ('reference', 'ilike', self)]"/>
+            </field>
+            <!-- Add Manufacturing filter after Purchase -->
+            <filter name="purchase" position="after">
+                <filter string="Manufacturing" name="manufacturing"
+                        domain="[('incoming_type', '=', 'manufacturing')]"/>
+            </filter>
+        </field>
+    </record>
+
+</odoo>
