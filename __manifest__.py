@@ -13,7 +13,7 @@ Adds:
 - Manufacturing incoming type and filter
 - Manufacturing source in the value-source breakdown
     """,
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Inventory/Inventory',
     'license': 'LGPL-3',
     'author': 'chitswe',
@@ -28,5 +28,4 @@ Adds:
     'installable': True,
     'application': False,
     'auto_install': False,
-    "version": "19.0.1.1.0",
 }
