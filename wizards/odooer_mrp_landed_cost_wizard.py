@@ -32,6 +32,7 @@ class OdooerMrpLandedCostWizardLine(models.TransientModel):
 class OdooerMrpLandedCostWizard(models.TransientModel):
     _name = 'odooer.mrp.landed.cost.wizard'
     _description = 'Distribute Landed Cost to MOs'
+    _rec_name = 'landed_cost_id'
 
     landed_cost_id = fields.Many2one(
         'stock.landed.cost', string='Landed Cost',
@@ -42,6 +43,14 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         string='Total Amount to Distribute', readonly=True,
         digits='Product Price',
         help="Total proportional landed cost share that should flow to finished products.")
+    non_mo_move_count = fields.Integer(
+        string='Other Usage (non-MO)', readonly=True,
+        help="Number of outgoing moves (deliveries, scraps, etc.) that consumed "
+             "from this receipt before LC validation — these cannot be redistributed.")
+    undistributable_amount = fields.Float(
+        string='Undistributable Amount', readonly=True, digits='Product Price',
+        help="LC share attributed to non-MO consumption (deliveries, scraps, etc.) "
+             "before validation. This amount stays in the expense account.")
     line_ids = fields.One2many(
         'odooer.mrp.landed.cost.wizard.line', 'wizard_id',
         string='Manufacturing Orders')
@@ -90,16 +99,16 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
                 GROUP BY svl.move_id
             )
             SELECT
-                sm_out.raw_material_production_id AS mo_id,
+                sm_out.raw_material_production_id         AS mo_id,
                 fl.incoming_move_id,
                 fl.product_id,
-                SUM(fl.quantity)                  AS consumed_qty,
-                pu.per_unit_cost
+                SUM(fl.quantity)                          AS consumed_qty,
+                pu.per_unit_cost,
+                COUNT(DISTINCT sm_out.id)                 AS outgoing_move_count
             FROM odooer_fifo_link fl
             JOIN stock_move sm_out ON sm_out.id = fl.outgoing_move_id
             JOIN per_unit pu        ON pu.incoming_move_id = fl.incoming_move_id
             WHERE fl.incoming_move_id = ANY(%s)
-              AND sm_out.raw_material_production_id IS NOT NULL
               AND sm_out.date < (
                   SELECT am.create_date
                   FROM account_move am
@@ -111,24 +120,31 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         rows = self.env.cr.dictfetchall()
 
         mo_data = {}
+        non_mo_move_count = 0
+        non_mo_amount = 0.0
         for row in rows:
             consumed = float(row['consumed_qty'])
             if consumed <= 0:
                 continue
-            mo_id = row['mo_id']
             per_unit = float(row['per_unit_cost'] or 0.0)
-            key = (mo_id, row['product_id'])
-            if key not in mo_data:
-                mo_data[key] = {
-                    'production_id': mo_id,
-                    'product_id': row['product_id'],
-                    'consumed_qty': 0.0,
-                    'landed_cost_amount': 0.0,
-                }
-            mo_data[key]['consumed_qty'] += consumed
-            mo_data[key]['landed_cost_amount'] += per_unit * consumed
+            amount = per_unit * consumed
 
-        return mo_data
+            if row['mo_id']:
+                key = (row['mo_id'], row['product_id'])
+                if key not in mo_data:
+                    mo_data[key] = {
+                        'production_id': row['mo_id'],
+                        'product_id': row['product_id'],
+                        'consumed_qty': 0.0,
+                        'landed_cost_amount': 0.0,
+                    }
+                mo_data[key]['consumed_qty'] += consumed
+                mo_data[key]['landed_cost_amount'] += amount
+            else:
+                non_mo_move_count += int(row['outgoing_move_count'] or 0)
+                non_mo_amount += amount
+
+        return mo_data, non_mo_move_count, non_mo_amount
 
     # ── Summary population (fast open, no transient line creation) ────────────
 
@@ -145,11 +161,13 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
 
         res['landed_cost_id'] = landed_cost.id
 
-        mo_data = self._build_mo_data(landed_cost)
+        mo_data, non_mo_move_count, non_mo_amount = self._build_mo_data(landed_cost)
         if mo_data:
             res['mo_count'] = len({d['production_id'] for d in mo_data.values()})
             res['product_count'] = len({d['product_id'] for d in mo_data.values()})
             res['total_amount'] = sum(d['landed_cost_amount'] for d in mo_data.values())
+        res['non_mo_move_count'] = non_mo_move_count
+        res['undistributable_amount'] = non_mo_amount
 
         return res
 
@@ -159,7 +177,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         """Create transient lines on demand, then open a full-page paginated view."""
         self.ensure_one()
         if not self.line_ids:
-            mo_data = self._build_mo_data(self.landed_cost_id)
+            mo_data, _, _ = self._build_mo_data(self.landed_cost_id)
             if not mo_data:
                 raise UserError(_('No manufacturing orders found to distribute costs to.'))
             self.env['odooer.mrp.landed.cost.wizard.line'].create([
@@ -234,7 +252,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
     def action_create_all_mo_landed_cost(self):
         """Create MO LC for ALL detected MOs — no selection required."""
         self.ensure_one()
-        mo_data = self._build_mo_data(self.landed_cost_id)
+        mo_data, _, _ = self._build_mo_data(self.landed_cost_id)
         if not mo_data:
             raise UserError(_('No manufacturing orders found to distribute costs to.'))
         mo_ids = self.env['mrp.production'].browse(

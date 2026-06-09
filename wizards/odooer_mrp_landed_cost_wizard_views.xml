@@ -12,10 +12,14 @@
                         this landed cost. Create for all MOs at once, or review and
                         deselect individual MOs first.
                     </div>
-                    <group>
+                    <group string="Distributable to MOs">
                         <field name="mo_count"/>
                         <field name="product_count"/>
                         <field name="total_amount"/>
+                    </group>
+                    <group string="Non-MO Consumption (not redistributable)">
+                        <field name="non_mo_move_count"/>
+                        <field name="undistributable_amount"/>
                     </group>
                 </sheet>
                 <footer>
@@ -39,8 +43,15 @@
             <form string="Select Manufacturing Orders">
                 <sheet>
                     <group>
-                        <field name="landed_cost_id" readonly="1"/>
-                        <field name="total_amount" readonly="1"/>
+                        <group string="Distributable to MOs">
+                            <field name="landed_cost_id" readonly="1"/>
+                            <field name="mo_count" readonly="1"/>
+                            <field name="total_amount" readonly="1"/>
+                        </group>
+                        <group string="Non-MO Consumption">
+                            <field name="non_mo_move_count" readonly="1"/>
+                            <field name="undistributable_amount" readonly="1"/>
+                        </group>
                     </group>
                     <field name="line_ids" mode="list" options="{'no_open': True}">
                         <list create="0" delete="0" limit="80">
@@ -54,8 +65,11 @@
                 </sheet>
                 <footer>
                     <button name="action_create_mo_landed_cost"
-                            string="Create for Selected MOs"
+                            string="Create Landed Costs"
                             type="object" class="btn-primary"/>
+                    <button name="action_create_all_mo_landed_cost"
+                            string="Create for All MOs"
+                            type="object" class="btn-secondary"/>
                 </footer>
             </form>
         </field>
