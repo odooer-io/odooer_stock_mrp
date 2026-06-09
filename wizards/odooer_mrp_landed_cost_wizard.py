@@ -149,7 +149,6 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
                 'a manufacturing landed cost without a service product.'
             ))
 
-        original_cost_line = original_lc.cost_lines[0]
         mo_ids = selected_lines.mapped('production_id')
 
         # ── Validate MOs are done (finished moves with quantity exist) ─────
@@ -169,17 +168,22 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
                 'negative. Nothing to create.'
             ))
 
+        # Create one cost line per original cost line, scaled to the MO share
+        original_lc_total = sum(original_lc.cost_lines.mapped('price_unit'))
+        mo_share_ratio = total_amount / original_lc_total if original_lc_total else 1.0
+        cost_lines_vals = [(0, 0, {
+            'product_id': cl.product_id.id,
+            'price_unit': cl.price_unit * mo_share_ratio,
+            'split_method': cl.split_method,
+            'account_id': cl.account_id.id,
+        }) for cl in original_lc.cost_lines]
+
         # Create the second landed cost targeting MO finished products
         new_lc = self.env['stock.landed.cost'].create({
             'target_model': 'manufacturing',
             'parent_landed_cost_id': original_lc.id,
             'mrp_production_ids': [(6, 0, mo_ids.ids)],
-            'cost_lines': [(0, 0, {
-                'product_id': original_cost_line.product_id.id,
-                'price_unit': total_amount,
-                'split_method': original_cost_line.split_method,
-                'account_id': original_cost_line.account_id.id,
-            })],
+            'cost_lines': cost_lines_vals,
         })
 
         return {
