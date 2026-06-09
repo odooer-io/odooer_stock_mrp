@@ -82,11 +82,11 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
                 SUM(fl.quantity) AS consumed_qty
             FROM odooer_fifo_link fl
             JOIN stock_move sm_out ON sm_out.id = fl.outgoing_move_id
-            WHERE fl.incoming_move_id = ANY(%(in_ids)s)
+            WHERE fl.incoming_move_id = ANY(%s)
               AND sm_out.raw_material_production_id IS NOT NULL
             GROUP BY sm_out.raw_material_production_id,
                      fl.incoming_move_id, fl.product_id
-        """, {'in_ids': incoming_move_ids})
+        """, (incoming_move_ids,))
         rows = self.env.cr.dictfetchall()
 
         # ── Step 4: compute proportional cost per row, group by MO ──────────
