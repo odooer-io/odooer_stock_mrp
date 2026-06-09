@@ -24,6 +24,9 @@ class OdooerMrpLandedCostWizardLine(models.TransientModel):
         readonly=True,
         help="Proportional landed cost for this MO based on consumed quantity.")
     selected = fields.Boolean(string='Apply', default=True)
+    currency_id = fields.Many2one(
+        'res.currency', string='Currency',
+        related='wizard_id.landed_cost_id.company_id.currency_id')
 
 
 class OdooerMrpLandedCostWizard(models.TransientModel):
