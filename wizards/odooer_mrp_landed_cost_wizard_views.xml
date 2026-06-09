@@ -27,7 +27,7 @@
                             string="Create for All MOs"
                             type="object" class="btn-primary"/>
                     <button name="action_review_and_select"
-                            string="Review &amp; Select MOs"
+                            string="View All MOs"
                             type="object" class="btn-secondary"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
@@ -41,6 +41,11 @@
         <field name="model">odooer.mrp.landed.cost.wizard</field>
         <field name="arch" type="xml">
             <form string="Select Manufacturing Orders">
+                <header>
+                    <button name="action_create_mo_landed_cost"
+                            string="Create Landed Costs"
+                            type="object" class="btn-primary"/>
+                </header>
                 <sheet>
                     <group>
                         <group string="Distributable to MOs">
@@ -55,7 +60,6 @@
                     </group>
                     <field name="line_ids" mode="list" options="{'no_open': True}">
                         <list create="0" delete="0" limit="80">
-                            <field name="selected"/>
                             <field name="production_id"/>
                             <field name="product_id"/>
                             <field name="consumed_qty" sum="Total Consumed Qty"/>
@@ -63,14 +67,6 @@
                         </list>
                     </field>
                 </sheet>
-                <footer>
-                    <button name="action_create_mo_landed_cost"
-                            string="Create Landed Costs"
-                            type="object" class="btn-primary"/>
-                    <button name="action_create_all_mo_landed_cost"
-                            string="Create for All MOs"
-                            type="object" class="btn-secondary"/>
-                </footer>
             </form>
         </field>
     </record>

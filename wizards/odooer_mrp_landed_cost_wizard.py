@@ -23,7 +23,6 @@ class OdooerMrpLandedCostWizardLine(models.TransientModel):
         string='Landed Cost Amount', digits='Product Price',
         readonly=True,
         help="Proportional landed cost for this MO based on consumed quantity.")
-    selected = fields.Boolean(string='Apply', default=True)
     currency_id = fields.Many2one(
         'res.currency', string='Currency',
         related='wizard_id.landed_cost_id.company_id.currency_id')
@@ -187,7 +186,6 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
                     'product_id': d['product_id'],
                     'consumed_qty': d['consumed_qty'],
                     'landed_cost_amount': d['landed_cost_amount'],
-                    'selected': True,
                 }
                 for d in mo_data.values()
             ])
@@ -262,14 +260,12 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         return self._create_mo_landed_cost(mo_ids, total_amount)
 
     def action_create_mo_landed_cost(self):
-        """Create MO LC for the SELECTED lines (called from the detail form)."""
+        """Create MO LC for ALL loaded lines (called from the detail form)."""
         self.ensure_one()
-        selected_lines = self.line_ids.filtered('selected')
-        if not selected_lines:
+        if not self.line_ids:
             raise UserError(_(
-                'Please select at least one manufacturing order to apply the '
-                'landed cost to.'
+                'No manufacturing order lines found. Please reload the wizard.'
             ))
-        mo_ids = selected_lines.mapped('production_id')
-        total_amount = sum(selected_lines.mapped('landed_cost_amount'))
+        mo_ids = self.line_ids.mapped('production_id')
+        total_amount = sum(self.line_ids.mapped('landed_cost_amount'))
         return self._create_mo_landed_cost(mo_ids, total_amount)
