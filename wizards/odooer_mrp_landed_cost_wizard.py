@@ -43,9 +43,9 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
     # ── Line population ───────────────────────────────────────────────────────
 
     @api.model
-    def default_get(self, fields_list):
-        res = super().default_get(fields_list)
-        landed_cost_id = self.env.context.get('default_landed_cost_id')
+    def default_get(self, fields_list, **kwargs):
+        res = super().default_get(fields_list, **kwargs)
+        landed_cost_id = kwargs.get('default_landed_cost_id') or self.env.context.get('default_landed_cost_id')
         if not landed_cost_id:
             return res
 
