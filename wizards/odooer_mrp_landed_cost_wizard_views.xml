@@ -26,8 +26,8 @@
                         landed cost. Select which MOs should receive proportional
                         cost on their finished products.
                     </div>
-                    <field name="line_ids" mode="list" options="{'no_open': True}" limit="2000">
-                        <list string="Valuation Adjustments" create="0" delete="0" edit="1" no_open="1">
+                    <field name="line_ids" mode="list" options="{'no_open': True}">
+                        <list string="Valuation Adjustments" create="0" delete="0" edit="1" no_open="1" limit="80">
                             <field name="selected" readonly="0"/>
                             <field name="production_id"/>
                             <field name="product_id"/>
@@ -51,7 +51,7 @@
         <field name="name">Distribute Landed Cost to MOs</field>
         <field name="res_model">odooer.mrp.landed.cost.wizard</field>
         <field name="view_mode">form</field>
-        <field name="target">new</field>
+        <field name="target">current</field>
         <field name="context">{"default_landed_cost_id": active_id}</field>
     </record>
 </odoo>
