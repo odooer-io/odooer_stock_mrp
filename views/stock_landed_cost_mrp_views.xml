@@ -6,14 +6,14 @@
         <field name="model">stock.landed.cost</field>
         <field name="inherit_id" ref="stock_landed_costs.view_stock_landed_cost_form"/>
         <field name="arch" type="xml">
-            <header position="inside">
+            <button name="button_cancel" position="after">
                 <button string="Distribute to MO"
                         name="%(action_odooer_mrp_landed_cost_wizard)d"
                         type="action"
                         class="btn-primary"
-                        attrs="{'invisible': [('state', '!=', 'done')]}"
+                        invisible="state != 'done'"
                         groups="stock.group_stock_manager"/>
-            </header>
+            </button>
         </field>
     </record>
 </odoo>

@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Default tree view for wizard lines (used by One2many) -->
+    <record id="odooer_mrp_landed_cost_wizard_line_tree" model="ir.ui.view">
+        <field name="name">odooer.mrp.landed.cost.wizard.line.tree</field>
+        <field name="model">odooer.mrp.landed.cost.wizard.line</field>
+        <field name="arch" type="xml">
+            <tree create="0" delete="0">
+                <field name="selected"/>
+                <field name="production_id"/>
+                <field name="product_id"/>
+                <field name="consumed_qty"/>
+                <field name="landed_cost_amount"/>
+            </tree>
+        </field>
+    </record>
+
     <record id="odooer_mrp_landed_cost_wizard_form" model="ir.ui.view">
         <field name="name">odooer.mrp.landed.cost.wizard.form</field>
         <field name="model">odooer.mrp.landed.cost.wizard</field>
@@ -11,19 +26,7 @@
                         landed cost. Select which MOs should receive proportional
                         cost on their finished products.
                     </div>
-                    <field name="line_ids" nolabel="1">
-                        <tree editable="bottom" create="0" delete="0">
-                            <field name="selected" widget="boolean_toggle"/>
-                            <field name="production_id" string="Manufacturing Order"/>
-                            <field name="product_id" string="Raw Material"/>
-                            <field name="consumed_qty" string="Consumed Qty"/>
-                            <field name="landed_cost_amount"
-                                   string="Landed Cost Amount"
-                                   widget="monetary"
-                                   options="{'currency_field': 'currency_id'}"/>
-                            <field name="currency_id" invisible="1"/>
-                        </tree>
-                    </field>
+                    <field name="line_ids"/>
                 </sheet>
                 <footer>
                     <button name="action_create_mo_landed_cost"
@@ -44,3 +47,5 @@
         <field name="context">{"default_landed_cost_id": active_id}</field>
     </record>
 </odoo>
+
+
