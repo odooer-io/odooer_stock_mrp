@@ -177,7 +177,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         """Create transient lines on demand, then open a full-page paginated view."""
         self.ensure_one()
         if not self.line_ids:
-            mo_data, _, _ = self._build_mo_data(self.landed_cost_id)
+            mo_data, _nmo_count, _nmo_amount = self._build_mo_data(self.landed_cost_id)
             if not mo_data:
                 raise UserError(_('No manufacturing orders found to distribute costs to.'))
             self.env['odooer.mrp.landed.cost.wizard.line'].create([
@@ -252,7 +252,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
     def action_create_all_mo_landed_cost(self):
         """Create MO LC for ALL detected MOs — no selection required."""
         self.ensure_one()
-        mo_data, _, _ = self._build_mo_data(self.landed_cost_id)
+        mo_data, _nmo_count, _nmo_amount = self._build_mo_data(self.landed_cost_id)
         if not mo_data:
             raise UserError(_('No manufacturing orders found to distribute costs to.'))
         mo_ids = self.env['mrp.production'].browse(
