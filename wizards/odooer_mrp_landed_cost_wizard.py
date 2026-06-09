@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import _, api, fields, models
+from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 
 
@@ -99,7 +99,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
             for mid in incoming_move_ids
         }
 
-        mo_data = {}
+        mo_data = {}  # key: (mo_id, product_id)
         for row in rows:
             mo_id = row['mo_id']
             in_id = row['incoming_move_id']
@@ -107,15 +107,16 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
             unit_cost = in_unit_cost_map.get(in_id, 0.0)
             cost = unit_cost * consumed
 
-            if mo_id not in mo_data:
-                mo_data[mo_id] = {
+            key = (mo_id, row['product_id'])
+            if key not in mo_data:
+                mo_data[key] = {
                     'production_id': mo_id,
                     'product_id': row['product_id'],
                     'consumed_qty': 0.0,
                     'landed_cost_amount': 0.0,
                 }
-            mo_data[mo_id]['consumed_qty'] += consumed
-            mo_data[mo_id]['landed_cost_amount'] += cost
+            mo_data[key]['consumed_qty'] += consumed
+            mo_data[key]['landed_cost_amount'] += cost
 
         line_vals = []
         for data in mo_data.values():
@@ -152,7 +153,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         mo_ids = selected_lines.mapped('production_id')
         total_amount = sum(selected_lines.mapped('landed_cost_amount'))
 
-        if self.env['res.currency'].compare_amounts(total_amount, 0) <= 0:
+        if tools.float_is_zero(total_amount, precision_digits=2) or total_amount < 0:
             raise UserError(_(
                 'The total landed cost amount to distribute is zero or '
                 'negative. Nothing to create.'
