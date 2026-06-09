@@ -151,6 +151,16 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
 
         original_cost_line = original_lc.cost_lines[0]
         mo_ids = selected_lines.mapped('production_id')
+
+        # ── Validate MOs are done (finished moves with quantity exist) ─────
+        unfinished = mo_ids.filtered(lambda m: m.state != 'done')
+        if unfinished:
+            raise UserError(_(
+                'Some selected manufacturing orders are not done:\n%s\n\n'
+                'Only completed MOs have finished product moves that can '
+                'receive landed costs.',
+            ) % '\n'.join('• ' + name for name in unfinished.mapped('name')))
+
         total_amount = sum(selected_lines.mapped('landed_cost_amount'))
 
         if tools.float_is_zero(total_amount, precision_digits=2) or total_amount < 0:
