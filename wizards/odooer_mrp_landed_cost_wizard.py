@@ -56,50 +56,67 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         res['landed_cost_id'] = landed_cost.id
 
         # ── Step 1: total additional_landed_cost per incoming move ──────────
-        incoming_cost_map = {}
-        for adj_line in landed_cost.valuation_adjustment_lines:
-            mid = adj_line.move_id.id
-            if not mid:
-                continue
-            incoming_cost_map[mid] = (incoming_cost_map.get(mid, 0.0)
-                                      + adj_line.additional_landed_cost)
+        grouped = self.env['stock.valuation.adjustment.lines'].read_group(
+            [('cost_id', '=', landed_cost.id), ('move_id', '!=', False)],
+            ['move_id', 'additional_landed_cost:sum'],
+            ['move_id'],
+            lazy=False,
+        )
+        incoming_cost_map = {
+            g['move_id'][0]: g['additional_landed_cost']
+            for g in grouped
+            if g.get('move_id')
+        }
 
         incoming_move_ids = list(incoming_cost_map.keys())
         if not incoming_move_ids:
             res['line_ids'] = []
             return res
 
-        # ── Step 2: find FIFO links where the consumer is an MO component ──
-        links = self.env['odooer.fifo.link'].search([
-            ('incoming_move_id', 'in', incoming_move_ids),
-            ('outgoing_move_id.raw_material_production_id', '!=', False),
-        ])
+        # ── Steps 2–3: aggregate FIFO links by (MO, incoming move) via SQL ─
+        self.env.cr.execute("""
+            SELECT
+                sm_out.raw_material_production_id AS mo_id,
+                fl.incoming_move_id,
+                fl.product_id,
+                SUM(fl.quantity) AS consumed_qty
+            FROM odooer_fifo_link fl
+            JOIN stock_move sm_out ON sm_out.id = fl.outgoing_move_id
+            WHERE fl.incoming_move_id = ANY(%(in_ids)s)
+              AND sm_out.raw_material_production_id IS NOT NULL
+            GROUP BY sm_out.raw_material_production_id,
+                     fl.incoming_move_id, fl.product_id
+        """, {'in_ids': incoming_move_ids})
+        rows = self.env.cr.dictfetchall()
 
-        # ── Step 3: group by MO, compute proportional cost ──────────────────
-        mo_data = {}  # {mo_id: {production_id, product_id, consumed_qty, amount}}
-        for link in links:
-            mo = link.outgoing_move_id.raw_material_production_id
-            incoming = link.incoming_move_id
-            total_incoming_cost = incoming_cost_map.get(incoming.id, 0.0)
-            total_incoming_qty = incoming.quantity
+        # ── Step 4: compute proportional cost per row, group by MO ──────────
+        incoming_moves = self.env['stock.move'].browse(incoming_move_ids)
+        in_qty_map = {m.id: m.quantity for m in incoming_moves}
 
-            if total_incoming_qty > 0:
-                link_cost = total_incoming_cost * (link.quantity / total_incoming_qty)
-            else:
-                link_cost = 0.0
+        # Unit landed cost per incoming move
+        in_unit_cost_map = {
+            mid: incoming_cost_map.get(mid, 0.0) / max(in_qty_map.get(mid, 0.0), 1e-9)
+            for mid in incoming_move_ids
+        }
 
-            mid = mo.id
-            if mid not in mo_data:
-                mo_data[mid] = {
-                    'production_id': mo.id,
-                    'product_id': link.product_id.id,
+        mo_data = {}
+        for row in rows:
+            mo_id = row['mo_id']
+            in_id = row['incoming_move_id']
+            consumed = row['consumed_qty']
+            unit_cost = in_unit_cost_map.get(in_id, 0.0)
+            cost = unit_cost * consumed
+
+            if mo_id not in mo_data:
+                mo_data[mo_id] = {
+                    'production_id': mo_id,
+                    'product_id': row['product_id'],
                     'consumed_qty': 0.0,
                     'landed_cost_amount': 0.0,
                 }
-            mo_data[mid]['consumed_qty'] += link.quantity
-            mo_data[mid]['landed_cost_amount'] += link_cost
+            mo_data[mo_id]['consumed_qty'] += consumed
+            mo_data[mo_id]['landed_cost_amount'] += cost
 
-        # ── Step 4: build wizard line values ────────────────────────────────
         line_vals = []
         for data in mo_data.values():
             line_vals.append([0, 0, {
