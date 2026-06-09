@@ -23,7 +23,10 @@ Adds:
         'mrp',
     ],
     'data': [
+        'security/ir.model.access.csv',
+        'wizards/odooer_mrp_landed_cost_wizard_views.xml',
         'views/odooer_valuation_report_mrp_views.xml',
+        'views/stock_landed_cost_mrp_views.xml',
     ],
     'installable': True,
     'application': False,
