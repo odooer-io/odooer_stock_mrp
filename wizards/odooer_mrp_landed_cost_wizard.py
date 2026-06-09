@@ -50,51 +50,67 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
 
     def _build_mo_data(self, landed_cost):
         """
-        Run the FIFO-link aggregation for landed_cost.
-        Returns a dict keyed by (mo_id, product_id) — empty dict if nothing found.
+        For each (mo_id, product_id): qty consumed by the MO from this LC's
+        receipt BEFORE the LC was validated, and the proportional cost.
+
+        Per-unit cost per incoming move:
+          SUM(additional_landed_cost) / MAX(quantity) from adjustment lines,
+          grouped by move_id.
+          - quantity = done qty of the incoming move (same for all cost lines)
+          - additional_landed_cost = total LC allocated to this move (all lines)
+          This equals the true per-unit LC cost regardless of split method.
+
+        "Consumed before LC validation" filter:
+          outgoing_move.date <= landed_cost.date
+          Non-MO outgoing moves are included in FIFO history but excluded from
+          the result — they simply don't create MO adjustment lines.
         """
         grouped = self.env['stock.valuation.adjustment.lines'].read_group(
             [('cost_id', '=', landed_cost.id), ('move_id', '!=', False)],
-            ['move_id', 'additional_landed_cost:sum'],
+            ['move_id'],
             ['move_id'],
             lazy=False,
         )
-        incoming_cost_map = {
-            g['move_id'][0]: g['additional_landed_cost']
-            for g in grouped
-            if g.get('move_id')
-        }
-        incoming_move_ids = list(incoming_cost_map.keys())
+        incoming_move_ids = [g['move_id'][0] for g in grouped if g.get('move_id')]
         if not incoming_move_ids:
             return {}
 
         self.env.cr.execute("""
+            WITH per_unit AS (
+                -- Per-unit LC cost per incoming move, summed across all cost lines.
+                -- MAX(quantity) = done qty (identical for every cost line on the same move).
+                SELECT
+                    svl.move_id                                                    AS incoming_move_id,
+                    SUM(svl.additional_landed_cost) / NULLIF(MAX(svl.quantity), 0) AS per_unit_cost
+                FROM stock_valuation_adjustment_lines svl
+                WHERE svl.cost_id = %s
+                  AND svl.move_id IS NOT NULL
+                GROUP BY svl.move_id
+            )
             SELECT
                 sm_out.raw_material_production_id AS mo_id,
                 fl.incoming_move_id,
                 fl.product_id,
-                SUM(fl.quantity) AS consumed_qty
+                SUM(fl.quantity)                  AS consumed_qty,
+                pu.per_unit_cost
             FROM odooer_fifo_link fl
             JOIN stock_move sm_out ON sm_out.id = fl.outgoing_move_id
+            JOIN per_unit pu        ON pu.incoming_move_id = fl.incoming_move_id
             WHERE fl.incoming_move_id = ANY(%s)
               AND sm_out.raw_material_production_id IS NOT NULL
+              AND sm_out.date::date <= (SELECT date FROM stock_landed_cost WHERE id = %s)
             GROUP BY sm_out.raw_material_production_id,
-                     fl.incoming_move_id, fl.product_id
-        """, (incoming_move_ids,))
+                     fl.incoming_move_id, fl.product_id, pu.per_unit_cost
+        """, (landed_cost.id, incoming_move_ids, landed_cost.id))
         rows = self.env.cr.dictfetchall()
-
-        incoming_moves = self.env['stock.move'].browse(incoming_move_ids)
-        in_qty_map = {m.id: m.quantity for m in incoming_moves}
-        in_unit_cost_map = {
-            mid: incoming_cost_map.get(mid, 0.0) / max(in_qty_map.get(mid, 0.0), 1e-9)
-            for mid in incoming_move_ids
-        }
 
         mo_data = {}
         for row in rows:
+            consumed = float(row['consumed_qty'])
+            if consumed <= 0:
+                continue
             mo_id = row['mo_id']
-            in_id = row['incoming_move_id']
-            consumed = row['consumed_qty']
+            per_unit = float(row['per_unit_cost'] or 0.0)
             key = (mo_id, row['product_id'])
             if key not in mo_data:
                 mo_data[key] = {
@@ -104,7 +120,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
                     'landed_cost_amount': 0.0,
                 }
             mo_data[key]['consumed_qty'] += consumed
-            mo_data[key]['landed_cost_amount'] += in_unit_cost_map.get(in_id, 0.0) * consumed
+            mo_data[key]['landed_cost_amount'] += per_unit * consumed
 
         return mo_data
 
