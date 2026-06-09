@@ -26,13 +26,13 @@
                         landed cost. Select which MOs should receive proportional
                         cost on their finished products.
                     </div>
-                    <field name="line_ids"  mode="list" options="{'no_open': True}">
+                    <field name="line_ids" mode="list" options="{'no_open': True}">
                         <list string="Valuation Adjustments" create="0" delete="0" edit="1" no_open="1">
                             <field name="selected" readonly="0"/>
                             <field name="production_id"/>
                             <field name="product_id"/>
-                            <field name="consumed_qty"/>
-                            <field name="landed_cost_amount"/>
+                            <field name="consumed_qty" sum="Total Consumed Qty"/>
+                            <field name="landed_cost_amount" sum="Total Landed Cost"/>
                         </list>
                     </field>
                 </sheet>
