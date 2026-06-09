@@ -5,13 +5,13 @@
         <field name="name">odooer.mrp.landed.cost.wizard.line.tree</field>
         <field name="model">odooer.mrp.landed.cost.wizard.line</field>
         <field name="arch" type="xml">
-            <tree create="0" delete="0">
+            <list create="0" delete="0">
                 <field name="selected"/>
                 <field name="production_id"/>
                 <field name="product_id"/>
                 <field name="consumed_qty"/>
                 <field name="landed_cost_amount"/>
-            </tree>
+            </list>
         </field>
     </record>
 
