@@ -172,6 +172,7 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
         # Create the second landed cost targeting MO finished products
         new_lc = self.env['stock.landed.cost'].create({
             'target_model': 'manufacturing',
+            'parent_landed_cost_id': original_lc.id,
             'mrp_production_ids': [(6, 0, mo_ids.ids)],
             'cost_lines': [(0, 0, {
                 'product_id': original_cost_line.product_id.id,

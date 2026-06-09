@@ -14,6 +14,11 @@
                         invisible="state != 'done'"
                         groups="stock.group_stock_manager"/>
             </button>
+            <field name="picking_ids" position="before">
+                <field name="parent_landed_cost_id"
+                       invisible="not parent_landed_cost_id"
+                       groups="stock.group_stock_manager"/>
+            </field>
         </field>
     </record>
 </odoo>
