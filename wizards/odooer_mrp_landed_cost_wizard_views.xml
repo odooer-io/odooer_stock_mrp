@@ -1,20 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Default tree view for wizard lines (used by One2many) -->
-    <record id="odooer_mrp_landed_cost_wizard_line_tree" model="ir.ui.view">
-        <field name="name">odooer.mrp.landed.cost.wizard.line.tree</field>
-        <field name="model">odooer.mrp.landed.cost.wizard.line</field>
-        <field name="arch" type="xml">
-            <list create="0" delete="0">
-                <field name="selected"/>
-                <field name="production_id"/>
-                <field name="product_id"/>
-                <field name="consumed_qty"/>
-                <field name="landed_cost_amount"/>
-            </list>
-        </field>
-    </record>
-
+    <!-- ── Summary wizard form (fast dialog — no line records loaded) ────── -->
     <record id="odooer_mrp_landed_cost_wizard_form" model="ir.ui.view">
         <field name="name">odooer.mrp.landed.cost.wizard.form</field>
         <field name="model">odooer.mrp.landed.cost.wizard</field>
@@ -22,13 +8,43 @@
             <form string="Distribute Landed Cost to MOs">
                 <sheet>
                     <div class="alert alert-info" role="alert">
-                        These manufacturing orders consumed raw materials from this
-                        landed cost. Select which MOs should receive proportional
-                        cost on their finished products.
+                        These manufacturing orders consumed raw materials covered by
+                        this landed cost. Create for all MOs at once, or review and
+                        deselect individual MOs first.
                     </div>
+                    <group>
+                        <field name="mo_count"/>
+                        <field name="product_count"/>
+                        <field name="total_amount"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_create_all_mo_landed_cost"
+                            string="Create for All MOs"
+                            type="object" class="btn-primary"/>
+                    <button name="action_review_and_select"
+                            string="Review &amp; Select MOs"
+                            type="object" class="btn-secondary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── Detail wizard form (full page, paginated list, breadcrumb back) ── -->
+    <record id="odooer_mrp_landed_cost_wizard_detail_form" model="ir.ui.view">
+        <field name="name">odooer.mrp.landed.cost.wizard.detail.form</field>
+        <field name="model">odooer.mrp.landed.cost.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Select Manufacturing Orders">
+                <sheet>
+                    <group>
+                        <field name="landed_cost_id" readonly="1"/>
+                        <field name="total_amount" readonly="1"/>
+                    </group>
                     <field name="line_ids" mode="list" options="{'no_open': True}">
-                        <list string="Valuation Adjustments" create="0" delete="0" edit="1" no_open="1" limit="80">
-                            <field name="selected" readonly="0"/>
+                        <list create="0" delete="0" limit="80">
+                            <field name="selected"/>
                             <field name="production_id"/>
                             <field name="product_id"/>
                             <field name="consumed_qty" sum="Total Consumed Qty"/>
@@ -38,22 +54,19 @@
                 </sheet>
                 <footer>
                     <button name="action_create_mo_landed_cost"
-                            string="Create Landed Cost" type="object"
-                            class="btn-primary"/>
-                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                            string="Create for Selected MOs"
+                            type="object" class="btn-primary"/>
                 </footer>
             </form>
         </field>
     </record>
 
-    <!-- Action to open the wizard from stock.landed.cost -->
+    <!-- ── Window action (opens summary dialog) ─────────────────────────── -->
     <record id="action_odooer_mrp_landed_cost_wizard" model="ir.actions.act_window">
         <field name="name">Distribute Landed Cost to MOs</field>
         <field name="res_model">odooer.mrp.landed.cost.wizard</field>
         <field name="view_mode">form</field>
-        <field name="target">current</field>
+        <field name="target">new</field>
         <field name="context">{"default_landed_cost_id": active_id}</field>
     </record>
 </odoo>
-
-
