@@ -61,9 +61,11 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
           This equals the true per-unit LC cost regardless of split method.
 
         "Consumed before LC validation" filter:
-          outgoing_move.date <= landed_cost.date
-          Non-MO outgoing moves are included in FIFO history but excluded from
-          the result — they simply don't create MO adjustment lines.
+          outgoing_move.date < account_move.create_date  (datetime precision)
+          Using the journal entry's create_date gives sub-day accuracy — a move
+          on the same calendar day as LC validation but created AFTER it is
+          correctly excluded. Non-MO outgoing moves are included in FIFO history
+          but excluded from the result — they have no raw_material_production_id.
         """
         grouped = self.env['stock.valuation.adjustment.lines'].read_group(
             [('cost_id', '=', landed_cost.id), ('move_id', '!=', False)],
@@ -98,7 +100,11 @@ class OdooerMrpLandedCostWizard(models.TransientModel):
             JOIN per_unit pu        ON pu.incoming_move_id = fl.incoming_move_id
             WHERE fl.incoming_move_id = ANY(%s)
               AND sm_out.raw_material_production_id IS NOT NULL
-              AND sm_out.date::date <= (SELECT date FROM stock_landed_cost WHERE id = %s)
+              AND sm_out.date < (
+                  SELECT am.create_date
+                  FROM account_move am
+                  WHERE am.id = (SELECT account_move_id FROM stock_landed_cost WHERE id = %s)
+              )
             GROUP BY sm_out.raw_material_production_id,
                      fl.incoming_move_id, fl.product_id, pu.per_unit_cost
         """, (landed_cost.id, incoming_move_ids, landed_cost.id))
