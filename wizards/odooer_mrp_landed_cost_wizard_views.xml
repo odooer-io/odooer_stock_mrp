@@ -66,6 +66,7 @@
         <field name="name">Distribute Landed Cost to MOs</field>
         <field name="res_model">odooer.mrp.landed.cost.wizard</field>
         <field name="view_mode">form</field>
+        <field name="view_id" ref="odooer_mrp_landed_cost_wizard_form"/>
         <field name="target">new</field>
         <field name="context">{"default_landed_cost_id": active_id}</field>
     </record>
